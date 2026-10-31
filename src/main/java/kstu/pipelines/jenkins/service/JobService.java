@@ -20,7 +20,7 @@ public class JobService {
     private final JobRepository jobRepository;
     private final JobMapper jobMapper;
 
-    @Transactional(readOnly = true)
+    @Transactional
     public JobResponse createJob(CreateJobRequest request) {
         if (jobRepository.existsByName(request.name())) {
             throw new DuplicateJobNameException(request.name());
