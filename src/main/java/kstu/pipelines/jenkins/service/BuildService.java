@@ -1,5 +1,7 @@
 package kstu.pipelines.jenkins.service;
 
+import kstu.pipelines.jenkins.dto.execution.BuildExecutionContext;
+import kstu.pipelines.jenkins.dto.execution.BuildStepExecutionContext;
 import kstu.pipelines.jenkins.dto.response.BuildConsoleResponse;
 import kstu.pipelines.jenkins.dto.response.BuildResponse;
 import kstu.pipelines.jenkins.entity.Build;
@@ -7,16 +9,20 @@ import kstu.pipelines.jenkins.entity.BuildStep;
 import kstu.pipelines.jenkins.entity.BuildStepExecution;
 import kstu.pipelines.jenkins.entity.Job;
 import kstu.pipelines.jenkins.enums.BuildStatus;
+import kstu.pipelines.jenkins.enums.StepStatus;
 import kstu.pipelines.jenkins.exception.BuildNotFoundException;
+import kstu.pipelines.jenkins.exception.BuildStepNotFoundException;
 import kstu.pipelines.jenkins.exception.JobNotFoundException;
 import kstu.pipelines.jenkins.mapper.BuildMapper;
 import kstu.pipelines.jenkins.repository.BuildRepository;
+import kstu.pipelines.jenkins.repository.BuildStepExecutionRepository;
 import kstu.pipelines.jenkins.repository.BuildStepRepository;
 import kstu.pipelines.jenkins.repository.JobRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -25,6 +31,7 @@ public class BuildService {
     private final BuildRepository buildRepository;
     private final JobRepository jobRepository;
     private final BuildStepRepository buildStepRepository;
+    private final BuildStepExecutionRepository buildStepExecutionRepository;
     private final BuildMapper buildMapper;
 
     @Transactional
@@ -81,14 +88,89 @@ public class BuildService {
 
     @Transactional(readOnly = true)
     public BuildConsoleResponse getBuildConsole(Long buildId) {
-        Build build = buildRepository.findById(buildId)
-                .orElseThrow(() -> new BuildNotFoundException(buildId));
+        Build build = findBuildById(buildId);
 
         return buildMapper.toConsoleResponse(build);
+    }
+
+    @Transactional(readOnly = true)
+    public BuildExecutionContext getExecutionContext(Long buildId) {
+        Build build = findBuildById(buildId);
+        Job job = build.getJob();
+
+        return new BuildExecutionContext(
+                build.getId(),
+                job.getId(),
+                build.getBuildNumber(),
+                job.getRepositoryUrl(),
+                job.getBranch(),
+                build.getBuildStepExecutions()
+                        .stream()
+                        .map(step -> new BuildStepExecutionContext(
+                                step.getId(),
+                                step.getName(),
+                                step.getType(),
+                                step.getCommand(),
+                                step.getPosition()
+                        ))
+                        .toList()
+        );
+    }
+
+    @Transactional
+    public void updateCommitHash(Long buildId, String commitHash) {
+        Build build = findBuildById(buildId);
+        build.setCommitHash(commitHash);
+    }
+
+    @Transactional
+    public void updateStatus(Long buildId, BuildStatus status) {
+        Build build = findBuildById(buildId);
+        build.setStatus(status);
+    }
+
+    @Transactional
+    public void startExecution(Long buildId) {
+        Build build = findBuildById(buildId);
+        build.setStatus(BuildStatus.RUNNING);
+        build.setStartedAt(LocalDateTime.now());
+    }
+
+    @Transactional
+    public void finishExecution(Long buildId, BuildStatus status) {
+        Build build = findBuildById(buildId);
+        build.setStatus(status);
+        build.setFinishedAt(LocalDateTime.now());
+    }
+
+    @Transactional
+    public void startStepExecution(Long executionId) {
+        BuildStepExecution execution = findBuildStepExecutionById(executionId);
+        execution.setStatus(StepStatus.RUNNING);
+    }
+
+    @Transactional
+    public void finishStepExecution(Long executionId, StepStatus stepStatus) {
+        if (stepStatus != StepStatus.SUCCESS && stepStatus != StepStatus.FAILURE) {
+            throw new IllegalArgumentException("Invalid terminal step status");
+        }
+
+        BuildStepExecution execution = findBuildStepExecutionById(executionId);
+        execution.setStatus(stepStatus);
     }
 
     private Job findJobById(Long id) {
         return jobRepository.findById(id)
                 .orElseThrow(() -> new JobNotFoundException(id));
+    }
+
+    private Build findBuildById(Long buildId) {
+        return buildRepository.findById(buildId)
+                .orElseThrow(() -> new BuildNotFoundException(buildId));
+    }
+
+    private BuildStepExecution findBuildStepExecutionById(Long executionId) {
+        return buildStepExecutionRepository.findById(executionId)
+                .orElseThrow(() -> new BuildStepNotFoundException(executionId));
     }
 }
