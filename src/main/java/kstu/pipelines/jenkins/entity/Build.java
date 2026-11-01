@@ -11,6 +11,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(
@@ -55,11 +57,24 @@ public class Build {
     @Column(columnDefinition = "TEXT")
     private String consoleOutput = "";
 
+    @OneToMany(
+            mappedBy = "build",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
+    @OrderBy("position ASC")
+    List<BuildStepExecution> buildStepExecutions = new ArrayList<>();
+
     @Builder
     public Build(Job job, Integer buildNumber, BuildStatus status, String commitHash) {
         this.job = job;
         this.buildNumber = buildNumber;
         this.status = status;
         this.commitHash = commitHash;
+    }
+
+    public void addBuildStepExecution(BuildStepExecution execution) {
+        buildStepExecutions.add(execution);
+        execution.setBuild(this);
     }
 }
