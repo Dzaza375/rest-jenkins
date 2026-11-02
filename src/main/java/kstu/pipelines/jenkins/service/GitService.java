@@ -5,6 +5,7 @@ import kstu.pipelines.jenkins.dto.execution.WorkspaceResult;
 import kstu.pipelines.jenkins.exception.GitCommandException;
 import kstu.pipelines.jenkins.exception.WorkspaceCreationException;
 import kstu.pipelines.jenkins.exception.WorkspacePathAlreadyExistsException;
+import kstu.pipelines.jenkins.service.process.ProcessUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -118,7 +119,7 @@ public class GitService {
             boolean completed = process.waitFor(5, TimeUnit.MINUTES);
 
             if (!completed) {
-                terminateProcess(process);
+                ProcessUtils.terminate(process);
                 throw new GitCommandException(timeoutMessage);
             }
 
@@ -133,31 +134,13 @@ public class GitService {
             throw new GitCommandException("Failed to execute Git command", e);
         } catch (InterruptedException e) {
             if (process.isAlive()) {
-                terminateProcess(process);
+                ProcessUtils.terminate(process);
             }
 
             Thread.currentThread().interrupt();
             throw new GitCommandException("Git command execution was interrupted", e);
         } finally {
             deleteLogFile(logFile);
-        }
-    }
-
-    private void terminateProcess(Process process) {
-        process.destroyForcibly();
-
-        boolean interrupted = false;
-
-        while (process.isAlive()) {
-            try {
-                process.waitFor();
-            } catch (InterruptedException e) {
-                interrupted = true;
-            }
-        }
-
-        if (interrupted) {
-            Thread.currentThread().interrupt();
         }
     }
 

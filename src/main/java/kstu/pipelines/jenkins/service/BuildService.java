@@ -1,5 +1,6 @@
 package kstu.pipelines.jenkins.service;
 
+import kstu.pipelines.jenkins.dto.BuildCreatedEvent;
 import kstu.pipelines.jenkins.dto.execution.BuildExecutionContext;
 import kstu.pipelines.jenkins.dto.execution.BuildStepExecutionContext;
 import kstu.pipelines.jenkins.dto.response.BuildConsoleResponse;
@@ -19,6 +20,7 @@ import kstu.pipelines.jenkins.repository.BuildStepExecutionRepository;
 import kstu.pipelines.jenkins.repository.BuildStepRepository;
 import kstu.pipelines.jenkins.repository.JobRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +35,7 @@ public class BuildService {
     private final BuildStepRepository buildStepRepository;
     private final BuildStepExecutionRepository buildStepExecutionRepository;
     private final BuildMapper buildMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public BuildResponse startBuild(Long jobId) {
@@ -63,7 +66,9 @@ public class BuildService {
             );
         }
 
-        return buildMapper.toResponse(buildRepository.save(build));
+        Build savedBuild = buildRepository.save(build);
+        eventPublisher.publishEvent(new BuildCreatedEvent(savedBuild.getId()));
+        return buildMapper.toResponse(savedBuild);
     }
 
     @Transactional(readOnly = true)
@@ -157,6 +162,18 @@ public class BuildService {
 
         BuildStepExecution execution = findBuildStepExecutionById(executionId);
         execution.setStatus(stepStatus);
+    }
+
+    @Transactional
+    public void appendStepConsoleOutput(Long executionId, String output) {
+        BuildStepExecution execution = findBuildStepExecutionById(executionId);
+        execution.setConsoleOutput(execution.getConsoleOutput() + output);
+    }
+
+    @Transactional
+    public void appendBuildConsoleOutput(Long buildId, String output) {
+        Build build = findBuildById(buildId);
+        build.setConsoleOutput(build.getConsoleOutput() + output);
     }
 
     private Job findJobById(Long id) {

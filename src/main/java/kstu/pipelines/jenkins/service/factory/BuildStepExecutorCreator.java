@@ -7,9 +7,9 @@ import kstu.pipelines.jenkins.service.execution.BuildStepExecutor;
 import java.nio.file.Path;
 
 public abstract class BuildStepExecutorCreator {
-    public void executeStep(BuildStepExecutionContext context, Path workspace) {
+    public String executeStep(BuildStepExecutionContext context, Path workspace) {
         BuildStepExecutor executor = createExecutor();
-        executor.execute(context, workspace);
+        return executor.execute(context, workspace);
     }
 
     protected abstract BuildStepExecutor createExecutor();

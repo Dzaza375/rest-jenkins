@@ -6,7 +6,7 @@ import java.nio.file.Path;
 
 public class ShellBuildStepExecutor implements BuildStepExecutor {
     @Override
-    public void execute(BuildStepExecutionContext context, Path workspace) {
+    public String execute(BuildStepExecutionContext context, Path workspace) {
         //TODO do shell command
     }
 }
