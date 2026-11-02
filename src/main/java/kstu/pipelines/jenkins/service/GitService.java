@@ -16,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -66,6 +67,21 @@ public class GitService {
         }
     }
 
+    public String getRemoteCommitHash(String repositoryUrl, String branch) {
+        Path logFile = workspaceProperties.root()
+                .toAbsolutePath()
+                .normalize()
+                .resolve("remote-" + UUID.randomUUID() + ".log");
+
+        try {
+            Files.createDirectories(logFile.getParent());
+        } catch (IOException e) {
+            throw new WorkspaceCreationException(logFile.getParent(), e);
+        }
+
+        return getRemoteCommitHash(repositoryUrl, branch, logFile);
+    }
+
     private void gitClone(
             Path workspacePath,
             Path logFile,
@@ -76,7 +92,7 @@ public class GitService {
                 null,
                 logFile,
                 "Git clone timed out",
-                "git", "clone", "--branch", "branch",
+                "git", "clone", "--branch", branch,
                 "--single-branch", repositoryUrl, workspacePath.toString()
         );
     }
@@ -94,6 +110,23 @@ public class GitService {
         }
 
         return commitHash;
+    }
+
+    private String getRemoteCommitHash(String repositoryUrl, String branch, Path logFile) {
+        String output = executeGitCommand(
+                null,
+                logFile,
+                "Git ls-remote timed out",
+                "git", "ls-remote", repositoryUrl, "refs/heads/" + branch
+        );
+
+        String[] parts = output.split("\\s+");
+
+        if (parts.length == 0 || parts[0].isBlank()) {
+            throw new GitCommandException("Git returned an empty remote commit hash");
+        }
+
+        return parts[0];
     }
 
     private String executeGitCommand(
@@ -133,7 +166,7 @@ public class GitService {
         } catch (IOException e) {
             throw new GitCommandException("Failed to execute Git command", e);
         } catch (InterruptedException e) {
-            if (process.isAlive()) {
+            if (process != null && process.isAlive()) {
                 ProcessUtils.terminate(process);
             }
 

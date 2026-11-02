@@ -1,7 +1,8 @@
 package kstu.pipelines.jenkins.service.process;
 
 public final class ProcessUtils {
-    private ProcessUtils() {}
+    private ProcessUtils() {
+    }
 
     public static void terminate(Process process) {
         process.destroyForcibly();

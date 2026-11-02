@@ -25,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -111,6 +112,7 @@ public class BuildService {
                 job.getBranch(),
                 build.getBuildStepExecutions()
                         .stream()
+                        .sorted(Comparator.comparing(BuildStepExecution::getPosition))
                         .map(step -> new BuildStepExecutionContext(
                                 step.getId(),
                                 step.getName(),

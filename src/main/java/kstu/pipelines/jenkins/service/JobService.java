@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -58,6 +59,14 @@ public class JobService {
             throw new DuplicateJobNameException(request.name());
         }
 
+        boolean repositoryChanged = !job.getRepositoryUrl().equals(request.repositoryUrl())
+                        || !job.getBranch().equals(request.branch());
+
+        if (repositoryChanged) {
+            job.setLastCommitHash(null);
+            job.setLastScmPollAt(null);
+        }
+
         job.setName(request.name());
         job.setRepositoryUrl(request.repositoryUrl());
         job.setBranch(request.branch());
@@ -70,6 +79,30 @@ public class JobService {
     @Transactional
     public void deleteJob(Long id) {
         jobRepository.delete(findJobById(id));
+    }
+
+    @Transactional(readOnly = true)
+    public List<Job> getJobsForScmPolling() {
+        return jobRepository.findAllByEnabledTrueAndPollScmIntervalMinutesIsNotNull();
+    }
+
+    @Transactional
+    public void updateScmPollingState(Long jobId, String commitHash, LocalDateTime polledAt) {
+        Job job = findJobById(jobId);
+
+        job.setLastCommitHash(commitHash);
+        job.setLastScmPollAt(polledAt);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Job> getJobsForPeriodicBuild() {
+        return jobRepository.findAllByEnabledTrueAndPeriodicBuildIntervalMinutesIsNotNull();
+    }
+
+    @Transactional
+    public void updateLastPeriodicBuildAt(Long jobId, LocalDateTime startedAt) {
+        Job job = findJobById(jobId);
+        job.setLastPeriodicBuildAt(startedAt);
     }
 
     private Job findJobById(Long id) {

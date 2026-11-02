@@ -45,6 +45,9 @@ public class Job {
     @Column(length = 64)
     private String lastCommitHash;
 
+    private LocalDateTime lastScmPollAt;
+    private LocalDateTime lastPeriodicBuildAt;
+
     @Positive(message = "SCM polling interval must be positive")
     private Integer pollScmIntervalMinutes;
 
